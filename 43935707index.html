@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>43935707 Computer Graphics COSC3000</title>
+		<style>
+			body {
+				margin:0;
+				overflow:hidden;
+				background:#777;
+				padding:0;
+				font-weight: bold;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px;
+				width: 100%;
+				color: #ffffff;
+				padding: 7px;
+				font-family:Verdana;
+				font-size:13px;
+				text-align:center;
+			}
+		</style>
+	</head>
+	<body>
+
+		<canvas id="myCanvas"></canvas>
+
+		<audio id='C4'> <source src='mp3notes/C4.ogg' type="audio/ogg"> </audio>
+		<audio id='Db4'> <source src='mp3notes/Db4.ogg' type="audio/ogg"> </audio>
+		<audio id='D4'> <source src='mp3notes/D4.ogg' type="audio/ogg"> </audio>
+		<audio id='Eb4'> <source src='mp3notes/Eb4.ogg' type="audio/ogg"> </audio>
+		<audio id='E4'> <source src='mp3notes/E4.ogg' type="audio/ogg"> </audio>
+		<audio id='F4'> <source src='mp3notes/F4.ogg' type="audio/ogg"> </audio>
+		<audio id='Gb4'> <source src='mp3notes/Gb4.ogg' type="audio/ogg"> </audio>
+		<audio id='G4'> <source src='mp3notes/G4.ogg' type="audio/ogg"> </audio>
+		<audio id='Ab4'> <source src='mp3notes/Ab4.ogg' type="audio/ogg"> </audio>
+		<audio id='A4'> <source src='mp3notes/A4.ogg' type="audio/ogg"> </audio>
+		<audio id='Bb4'> <source src='mp3notes/Bb4.ogg' type="audio/ogg"> </audio>
+		<audio id='B4'> <source src='mp3notes/B4.ogg' type="audio/ogg"> </audio>
+		<audio id='C5'> <source src='mp3notes/C5.ogg' type="audio/ogg"> </audio>
+
+		<script src="js/three.js"></script>
+
+		<script src="js/Detector.js"></script>
+		<script src="js/OrbitControls.js"></script>
+
+
+		<script>
+
+			if (! Detector.webgl) Detector.addGetWebGLMessage();
+
+			var myCanvas; //stats;
+			var camera, scene, renderer, controls, listener, loader;
+			var textures = [];
+
+			var keysWhite = [];
+			var keysBlack = [];
+			var whiteKeyNotes = [];
+			var blackKeyNotes = [];
+			var whiteKeyNotesPlaying = [];
+			var blackKeyNotesPlaying = [];
+			var whiteKeyNotesID = ['C4', 'Db4'];
+
+			initialize();
+			animate();
+
+			function initialize() {
+
+				renderer = new THREE.WebGLRenderer({canvas: document.getElementById('myCanvas'), antialias: true});
+				renderer.setPixelRatio(window.devicePixelRatio)
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				renderer.setClearColor(0x000000);
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+				camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000 );
+				camera.position.set(17, 17, 17);
+				scene = new THREE.Scene();
+
+				// create an ambient light to show the entire space
+				var ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+				scene.add(ambientLight);
+
+				var spotLight = new THREE.SpotLight({color: 0xF3F3F3, intensity: 2., penumbra: 0, decay: 1, 
+														angle: 1, distance: 500});
+				spotLight.position.set(-45,35,0);
+				spotLight.castShadow = true;
+				scene.add(spotLight);
+
+				// add a 'base' for the piano keys
+				var geometry = new THREE.BoxGeometry(12, 0.75, 19.84);
+				var material = new THREE.MeshPhongMaterial({color: 0x270000, shininess: 57});
+				var meshBase = new THREE.Mesh(geometry, material);
+				meshBase.position.set(-0.5, 0.375, 0);
+				meshBase.castShadow = true; //default is false
+				meshBase.receiveShadow = true;
+				scene.add(meshBase);
+
+				var geometryBack = new THREE.BoxGeometry(1.5, 3, 19.84);
+				var materialBack = new THREE.MeshPhongMaterial({color: 0x770000, shininess: 47});
+				var meshBack = new THREE.Mesh(geometryBack, materialBack);
+				meshBack.position.set(-5.75, 2.25, 0);
+				meshBack.castShadow = true; //default is false
+				meshBack.receiveShadow = true;
+				scene.add(meshBack);
+
+				var geometrySide1 = new THREE.BoxGeometry(7, 2, 2.27);
+				var materialSide1 = new THREE.MeshPhongMaterial({color: 0x770000, shininess: 47});
+				var meshSide1 = new THREE.Mesh(geometrySide1, materialSide1);
+				meshSide1.position.set(-1.5, 1.75, 8.785);
+				meshSide1.castShadow = true; //default is false
+				meshSide1.receiveShadow = true;
+				scene.add(meshSide1);
+
+				var geometrySide2 = new THREE.BoxGeometry(7, 2, 2.27);
+				var materialSide2 = new THREE.MeshPhongMaterial({color: 0x770000, shininess: 47});
+				var meshSide2 = new THREE.Mesh(geometrySide1, materialSide1);
+				meshSide2.position.set(-1.5, 1.75, -8.785);
+				meshSide2.castShadow = true; //default is false
+				meshSide2.receiveShadow = true;
+				scene.add(meshSide2);
+
+				var plane = new THREE.PlaneBufferGeometry(90,90,50,50);
+			    plane.rotateX(-Math.PI/2);
+
+			    var planeMaterial = new THREE.MeshPhongMaterial({color: 0x272727, shininess: 27});
+			    floor = new THREE.Mesh(plane, planeMaterial);
+			    floor.receiveShadow = true;
+			    scene.add(floor);
+
+				initializeKeys();
+				initialiseKeySoundVariables();
+
+				// use mouse controls from the imported library. Let the user see all sides of the piano.
+				controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+				// add event listener if the window is resized
+				window.addEventListener('resize',whenWindowResized, false);
+
+				// add event listener for when a key is pressed
+				window.addEventListener('keydown', KeyPressed, false);
+
+				// add event listener for when a key is released
+				window.addEventListener('keyup', KeyReleased, false);
+
+			}
+
+			function initializeKeys() {
+				for (i = 0; i < 8; ++i) {
+					var geometryWhiteKey = new THREE.BoxGeometry(10, 1.5, 1.77);
+					// create a lamber material. lambert materials respond to light
+					var materialWhiteKey = new THREE.MeshPhongMaterial({color: 0xC3C3C3, shininess: 77});
+					keysWhite[i] = new THREE.Mesh(geometryWhiteKey, materialWhiteKey);
+					keysWhite[i].position.set(0,1.507,(6.65 + (-1.9 * i)));
+					keysWhite[i].castShadow = true; //default is false
+					keysWhite[i].receiveShadow = true;
+					scene.add(keysWhite[i]);
+				}
+				for (i = 0; i < 2; ++i) {
+					var geometryBlackKey = new THREE.BoxGeometry(6.3, 1, 0.9735);
+					var materialBlackKey = new THREE.MeshPhongMaterial({color: 0x070707, 
+																		shininess: 100, specular: 0x272727});
+					keysBlack[i] = new THREE.Mesh(geometryBlackKey, materialBlackKey);
+					keysBlack[i].position.set(-1.8535, 2.74375, (3.8 + (i*1.9)));
+					keysBlack[i].castShadow = true; //default is false
+					keysBlack[i].receiveShadow = true;
+					scene.add(keysBlack[i]);
+					if (i == 1) {
+						for (j = 0; j < 3; ++j) {
+							var geometryBlackKey = new THREE.BoxGeometry(6.3, 1, 0.9735);
+							var materialBlackKey = new THREE.MeshPhongMaterial({color: 0x070707, 
+																				shininess: 100, specular: 0x272727});
+							keysBlack[(i + (j + 1))] = new THREE.Mesh(geometryBlackKey, materialBlackKey);
+							keysBlack[(i + (j + 1))].position.set(-1.8535, 2.74375, (0 - (j*1.9)));
+							keysBlack[(i + (j + 1))].castShadow = true; //default is false
+							keysBlack[(i + (j + 1))].receiveShadow = true;
+							scene.add(keysBlack[(i + (j + 1))]);
+						}
+					}
+				}
+			}
+
+			function initialiseKeySoundVariables() {
+				for (i = 0; i < 8; ++i) {
+					whiteKeyNotesPlaying[i] = false;
+				}
+				for (i = 0; i < 5; ++i) {
+					blackKeyNotesPlaying[i] = false;
+				}	
+			}
+
+			function whenWindowResized() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function KeyPressed(event) {
+				var code = event.keyCode || event.which;
+				switch(code) {
+					case 65: keysWhite[0].material.color.setHex(0x90F500); moveKeyDown(keysWhite[0], 0, 0); 
+					playSound(65,0,0); break;
+					case 87: keysBlack[1].material.color.setHex(0x47AF00); moveKeyDown(keysBlack[1], 1); 
+					playSound(87,1,1); break;
+					case 83: keysWhite[1].material.color.setHex(0x90F500); moveKeyDown(keysWhite[1], 0); 
+					playSound(83,0,1); break;
+					case 69: keysBlack[0].material.color.setHex(0x47AF00); moveKeyDown(keysBlack[0], 1); 
+					playSound(69,1,0); break;
+					case 68: keysWhite[2].material.color.setHex(0x90F500); moveKeyDown(keysWhite[2], 0); 
+					playSound(68,0,2); break;
+					case 70: keysWhite[3].material.color.setHex(0x90F500); moveKeyDown(keysWhite[3], 0); 
+					playSound(70,0,3); break;
+					case 84: keysBlack[2].material.color.setHex(0x47AF00); moveKeyDown(keysBlack[2], 1); 
+					playSound(84,1,2); break;
+					case 71: keysWhite[4].material.color.setHex(0x90F500); moveKeyDown(keysWhite[4], 0); 
+					playSound(71,0,4); break;
+					case 89: keysBlack[3].material.color.setHex(0x47AF00); moveKeyDown(keysBlack[3], 1); 
+					playSound(89,1,3); break;
+					case 72: keysWhite[5].material.color.setHex(0x90F500); moveKeyDown(keysWhite[5], 0); 
+					playSound(72,0,5); break;
+					case 85: keysBlack[4].material.color.setHex(0x47AF00); moveKeyDown(keysBlack[4], 1); 
+					playSound(85,1,4); break;
+					case 74: keysWhite[6].material.color.setHex(0x90F500); moveKeyDown(keysWhite[6], 0); 
+					playSound(74,0,6); break;
+					case 75: keysWhite[7].material.color.setHex(0x90F500); moveKeyDown(keysWhite[7], 0); 
+					playSound(75,0,7); break;
+					default:
+						break;
+				}
+			}
+
+			function KeyReleased(event) {
+				var code = event.keyCode || event.which;
+				switch(code) {
+					case 65: keysWhite[0].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[0]);
+					stopSound(65,0,0); break;
+					case 87: keysBlack[1].material.color.setHex(0x070707); moveKeyUp(keysBlack[1]); 
+					stopSound(87,1,1); break;
+					case 83: keysWhite[1].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[1]);
+					stopSound(83,0,1); break;
+					case 69: keysBlack[0].material.color.setHex(0x070707); moveKeyUp(keysBlack[0]);
+					stopSound(69,1,0); break;
+					case 68: keysWhite[2].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[2]);
+					stopSound(68,0,2); break;
+					case 70: keysWhite[3].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[3]);
+					stopSound(70,0,3); break;
+					case 84: keysBlack[2].material.color.setHex(0x070707); moveKeyUp(keysBlack[2]);
+					stopSound(84,1,2); break;
+					case 71: keysWhite[4].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[4]);
+					stopSound(71,0,4); break;
+					case 89: keysBlack[3].material.color.setHex(0x070707); moveKeyUp(keysBlack[3]);
+					stopSound(89,1,3); break;
+					case 72: keysWhite[5].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[5]);
+					stopSound(72,0,5); break;
+					case 85: keysBlack[4].material.color.setHex(0x070707); moveKeyUp(keysBlack[4]);
+					stopSound(85,1,4); break;
+					case 74: keysWhite[6].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[6]);
+					stopSound(74,0,6); break;
+					case 75: keysWhite[7].material.color.setHex(0xC3C3C3); moveKeyUp(keysWhite[7]);
+					stopSound(75,0,7); break;
+					default:
+						break;
+				}
+			}
+
+			function moveKeyDown(key, keyType, index) {
+				switch(keyType) {
+					case 0:
+						if (key.position.y > 1.407) {
+							y = key.position.y;
+							key.position.setY((y - 0.1));
+							render();
+							break;
+						}
+					case 1:
+						if (key.position.y > 2.64375) {
+							y = key.position.y;
+							key.position.setY((y - 0.1));
+							render();
+							break;
+						}
+					default:
+						break;
+				}
+			}
+
+			function moveKeyUp(key) {
+				y = key.position.y;
+				key.position.setY((y + 0.1));
+				render();
+			}
+
+			function playSound(keyCode, type, index) {
+				switch(type) {
+					case 0: if (whiteKeyNotesPlaying[index]) {return;} else {break;}
+					case 1: if (blackKeyNotesPlaying[index]) {return;} else {break;}
+					default: break;
+				}
+				switch(keyCode) {
+					case 65: document.getElementById('C4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 87: document.getElementById('Db4').play(); blackKeyNotesPlaying[index] = true; break;
+					case 83: document.getElementById('D4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 69: document.getElementById('Eb4').play(); blackKeyNotesPlaying[index] = true; break;
+					case 68: document.getElementById('E4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 70: document.getElementById('F4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 84: document.getElementById('Gb4').play(); blackKeyNotesPlaying[index] = true; break;
+					case 71: document.getElementById('G4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 89: document.getElementById('Ab4').play(); blackKeyNotesPlaying[index] = true; break;
+					case 72: document.getElementById('A4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 85: document.getElementById('Bb4').play(); blackKeyNotesPlaying[index] = true; break;
+					case 74: document.getElementById('B4').play(); whiteKeyNotesPlaying[index] = true; break;
+					case 75: document.getElementById('C5').play(); whiteKeyNotesPlaying[index] = true; break;
+					default:
+						break;
+				}
+			}
+
+			function stopSound(keyCode, type, index) {
+				switch(type) {
+					case 0: if (!(whiteKeyNotesPlaying[index])) {return;} else {break;}
+					case 1: if (!(blackKeyNotesPlaying[index])) {return;} else {break;}
+					default: break;
+				}
+				switch(keyCode) {
+					case 65: document.getElementById('C4').pause(); document.getElementById('C4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 87: document.getElementById('Db4').pause(); document.getElementById('Db4').currentTime = 0;
+					blackKeyNotesPlaying[index] = false; break;
+					case 83: document.getElementById('D4').pause(); document.getElementById('D4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 69: document.getElementById('Eb4').pause(); document.getElementById('Eb4').currentTime = 0;
+					blackKeyNotesPlaying[index] = false; break;
+					case 68: document.getElementById('E4').pause(); document.getElementById('E4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 70: document.getElementById('F4').pause(); document.getElementById('F4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 84: document.getElementById('Gb4').pause(); document.getElementById('Gb4').currentTime = 0;
+					blackKeyNotesPlaying[index] = false; break;
+					case 71: document.getElementById('G4').pause(); document.getElementById('G4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 89: document.getElementById('Ab4').pause(); document.getElementById('Ab4').currentTime = 0;
+					blackKeyNotesPlaying[index] = false; break;
+					case 72: document.getElementById('A4').pause(); document.getElementById('A4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 85: document.getElementById('Bb4').pause(); document.getElementById('Bb4').currentTime = 0;
+					blackKeyNotesPlaying[index] = false; break;
+					case 74: document.getElementById('B4').pause(); document.getElementById('B4').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					case 75: document.getElementById('C5').pause(); document.getElementById('C5').currentTime = 0;
+					whiteKeyNotesPlaying[index] = false; break;
+					default:
+						break;
+				}
+			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+				controls.update();
+				render();
+				//stats.update();
+			}
+
+			function render() {
+				renderer.render(scene, camera);
+			}
+		</script>
+	</body>
+</html>
